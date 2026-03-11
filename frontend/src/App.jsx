@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import ReactMarkdown from 'react-markdown'
 import { api } from './utils/api'
 import Login from './pages/Login'
 import Register from './pages/Register'
@@ -293,6 +294,8 @@ function App() {
                   <div className="message-content">
                     {msg.typing ? (
                       <div className="typing-indicator"><span /><span /><span /></div>
+                    ) : msg.sender === 'bot' ? (
+                      <ReactMarkdown className="markdown-body">{msg.text}</ReactMarkdown>
                     ) : (
                       <p style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</p>
                     )}
