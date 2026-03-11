@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Background rounded square -->
+  <rect width="64" height="64" rx="14" fill="url(#bg)"/>
+
+  <!-- Scales of justice -->
+  <!-- Center pole -->
+  <rect x="31" y="14" width="2" height="34" rx="1" fill="white" opacity="0.9"/>
+  <!-- Base -->
+  <rect x="22" y="47" width="20" height="3" rx="1.5" fill="white" opacity="0.9"/>
+  <!-- Top crossbar -->
+  <rect x="18" y="18" width="28" height="2" rx="1" fill="white" opacity="0.9"/>
+
+  <!-- Left chain -->
+  <line x1="22" y1="20" x2="20" y2="30" stroke="white" stroke-width="1.5" stroke-opacity="0.8" stroke-linecap="round"/>
+  <!-- Right chain -->
+  <line x1="42" y1="20" x2="44" y2="30" stroke="white" stroke-width="1.5" stroke-opacity="0.8" stroke-linecap="round"/>
+
+  <!-- Left pan -->
+  <path d="M15 30 Q20 35 25 30" stroke="white" stroke-width="1.8" stroke-linecap="round" fill="none" opacity="0.9"/>
+  <!-- Right pan -->
+  <path d="M39 30 Q44 35 49 30" stroke="white" stroke-width="1.8" stroke-linecap="round" fill="none" opacity="0.9"/>
+
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#8b5cf6"/>
+    </linearGradient>
+  </defs>
+</svg>
