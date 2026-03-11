@@ -1,64 +1,123 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { api } from './utils/api'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import './App.css'
 
-// ──────────────────────────────────────────────
-//  Helpers
-// ──────────────────────────────────────────────
-
 function getInitials(username = '') {
   return username.charAt(0).toUpperCase();
 }
 
-// ──────────────────────────────────────────────
-//  App
-// ──────────────────────────────────────────────
+const WELCOME_MSG = {
+  id: 'welcome',
+  text: "Welcome! Ask me any legal questions about the Companies Act or Income Tax Act.",
+  sender: "bot"
+};
 
 function App() {
-  // Auth state
-  const [user, setUser]       = useState(null);    // null = not logged in
-  const [authView, setAuthView] = useState('login'); // 'login' | 'register'
+  // Auth
+  const [user, setUser]             = useState(null);
+  const [authView, setAuthView]     = useState('login');
   const [authLoading, setAuthLoading] = useState(true);
 
-  // Chat state
-  const [messages, setMessages] = useState([
-    { id: 1, text: "Welcome! Ask me any legal questions about the Companies Act or Income Tax Act.", sender: "bot" }
-  ]);
+  // Conversations
+  const [conversations, setConversations]         = useState([]);
+  const [activeConvId, setActiveConvId]           = useState(null);
+  const [convLoading, setConvLoading]             = useState(false);
+
+  // Messages
+  const [messages, setMessages]     = useState([WELCOME_MSG]);
   const [inputValue, setInputValue] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
-  const [chatError, setChatError]     = useState('');
+  const [chatError, setChatError]   = useState('');
 
   const messagesEndRef = useRef(null);
 
-  // On mount: check if a valid token already exists
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) { setAuthLoading(false); return; }
-
-    api.me()
-      .then(u => setUser(u))
-      .catch(() => localStorage.removeItem('token'))
-      .finally(() => setAuthLoading(false));
-  }, []);
-
+  // ── Auto-scroll ──
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // ── Auth handlers ──
-  const handleLogin = (u) => setUser(u);
+  // ── On mount: validate token + load conversations ──
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) { setAuthLoading(false); return; }
+    api.me()
+      .then(u => {
+        setUser(u);
+        return loadConversations();
+      })
+      .catch(() => localStorage.removeItem('token'))
+      .finally(() => setAuthLoading(false));
+  }, []);
+
+  // ── Load conversation list ──
+  const loadConversations = useCallback(async () => {
+    try {
+      const convs = await api.listConversations();
+      setConversations(convs);
+    } catch (e) {
+      console.error('Failed to load conversations', e);
+    }
+  }, []);
+
+  // ── Select a conversation → load its messages ──
+  const selectConversation = async (convId) => {
+    if (convId === activeConvId) return;
+    setActiveConvId(convId);
+    setChatError('');
+    setConvLoading(true);
+    try {
+      const msgs = await api.getMessages(convId);
+      if (msgs.length === 0) {
+        setMessages([WELCOME_MSG]);
+      } else {
+        setMessages(msgs.map(m => ({ id: m.id, text: m.content, sender: m.role })));
+      }
+    } catch (e) {
+      setChatError('Failed to load messages.');
+    } finally {
+      setConvLoading(false);
+    }
+  };
+
+  // ── New Chat ──
+  const handleNewChat = async () => {
+    setActiveConvId(null);
+    setMessages([WELCOME_MSG]);
+    setChatError('');
+  };
+
+  // ── Delete conversation ──
+  const handleDeleteConversation = async (e, convId) => {
+    e.stopPropagation();
+    try {
+      await api.deleteConversation(convId);
+      setConversations(prev => prev.filter(c => c.id !== convId));
+      if (activeConvId === convId) {
+        setActiveConvId(null);
+        setMessages([WELCOME_MSG]);
+      }
+    } catch (e) {
+      console.error('Failed to delete conversation', e);
+    }
+  };
+
+  // ── Auth ──
+  const handleLogin = async (u) => {
+    setUser(u);
+    await loadConversations();
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     setUser(null);
-    setMessages([
-      { id: 1, text: "Welcome! Ask me any legal questions about the Companies Act or Income Tax Act.", sender: "bot" }
-    ]);
+    setConversations([]);
+    setActiveConvId(null);
+    setMessages([WELCOME_MSG]);
   };
 
-  // ── Chat handler ──
+  // ── Send message ──
   const handleSend = async (e) => {
     e.preventDefault();
     if (!inputValue.trim() || chatLoading) return;
@@ -67,19 +126,28 @@ function App() {
     setInputValue('');
     setChatError('');
 
-    // Optimistically add user message
     const userMsg = { id: Date.now(), text: query, sender: 'user' };
     setMessages(prev => [...prev, userMsg]);
     setChatLoading(true);
 
-    // Add a placeholder typing indicator
     const typingId = Date.now() + 1;
     setMessages(prev => [...prev, { id: typingId, text: '...', sender: 'bot', typing: true }]);
 
     try {
-      const data = await api.chat(query);
+      const data = await api.chat(query, activeConvId);
 
-      // Build the answer with source citations
+      // Track the conversation id (might be auto-created)
+      const newConvId = data.conversation_id;
+      if (!activeConvId) {
+        setActiveConvId(newConvId);
+        // Add new conversation to top of sidebar
+        await loadConversations();
+      } else {
+        // Update updated_at order in sidebar
+        await loadConversations();
+      }
+
+      // Build answer text with sources
       let fullAnswer = data.answer;
       if (data.sources && data.sources.length > 0) {
         const citations = data.sources
@@ -88,7 +156,6 @@ function App() {
         fullAnswer += `\n\n📚 Sources:\n${citations}`;
       }
 
-      // Replace typing indicator with real answer
       setMessages(prev => prev.map(m =>
         m.id === typingId ? { id: typingId, text: fullAnswer, sender: 'bot' } : m
       ));
@@ -101,7 +168,7 @@ function App() {
   };
 
   // ──────────────────────────────────────────
-  //  Render: loading splash
+  //  Render: loading
   // ──────────────────────────────────────────
   if (authLoading) {
     return (
@@ -118,9 +185,7 @@ function App() {
   //  Render: auth pages
   // ──────────────────────────────────────────
   if (!user) {
-    if (authView === 'register') {
-      return <Register onGoLogin={() => setAuthView('login')} />;
-    }
+    if (authView === 'register') return <Register onGoLogin={() => setAuthView('login')} />;
     return <Login onLogin={handleLogin} onGoRegister={() => setAuthView('register')} />;
   }
 
@@ -136,17 +201,36 @@ function App() {
           <h2>Smart Campus</h2>
         </div>
 
-        <button className="new-chat-btn" onClick={() => setMessages([
-          { id: 1, text: "Welcome! Ask me any legal questions about the Companies Act or Income Tax Act.", sender: "bot" }
-        ])}>
+        <button className="new-chat-btn" onClick={handleNewChat}>
           <span>+</span> New Chat
         </button>
 
         <div className="history-list">
-          <p className="history-title">Session</p>
-          {messages.filter(m => m.sender === 'user').slice(0, 5).map(m => (
-            <div key={m.id} className="history-item">
-              {m.text.length > 30 ? m.text.substring(0, 30) + '…' : m.text}
+          <p className="history-title">Conversations</p>
+
+          {conversations.length === 0 && (
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', paddingLeft: '0.5rem' }}>
+              No chats yet. Start one!
+            </p>
+          )}
+
+          {conversations.map(conv => (
+            <div
+              key={conv.id}
+              className={`history-item ${activeConvId === conv.id ? 'active' : ''}`}
+              onClick={() => selectConversation(conv.id)}
+              title={conv.title}
+            >
+              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {conv.title}
+              </span>
+              <button
+                className="conv-delete-btn"
+                onClick={(e) => handleDeleteConversation(e, conv.id)}
+                title="Delete conversation"
+              >
+                ✕
+              </button>
             </div>
           ))}
         </div>
@@ -164,12 +248,9 @@ function App() {
           <button
             onClick={handleLogout}
             title="Logout"
-            style={{
-              background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)',
-              padding: '4px', borderRadius: '6px', transition: 'color 0.2s', flexShrink: 0
-            }}
-            onMouseEnter={e => e.target.style.color = '#f87171'}
-            onMouseLeave={e => e.target.style.color = 'var(--text-muted)'}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px', borderRadius: '6px', transition: 'color 0.2s', flexShrink: 0 }}
+            onMouseEnter={e => e.currentTarget.style.color = '#f87171'}
+            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
@@ -180,7 +261,7 @@ function App() {
         </div>
       </aside>
 
-      {/* Main Chat Area */}
+      {/* Main Chat */}
       <main className="chat-main">
         <header className="chat-header">
           <h2>Legal Assistant RAG</h2>
@@ -188,28 +269,32 @@ function App() {
         </header>
 
         <div className="messages-area">
-          {messages.map((msg) => (
-            <div key={msg.id} className={`message-wrapper ${msg.sender}`}>
-              <div className="message-bubble">
-                {msg.sender === 'bot' && (
-                  <div className="bot-avatar">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M12 2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-1v2h1a4 4 0 0 1 4 4v5a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2v-5a4 4 0 0 1 4-4h1V8h-1a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h4z" />
-                    </svg>
-                  </div>
-                )}
-                <div className="message-content">
-                  {msg.typing ? (
-                    <div className="typing-indicator">
-                      <span /><span /><span />
+          {convLoading ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+              <div className="typing-indicator"><span /><span /><span /></div>
+            </div>
+          ) : (
+            messages.map((msg) => (
+              <div key={msg.id} className={`message-wrapper ${msg.sender}`}>
+                <div className="message-bubble">
+                  {msg.sender === 'bot' && (
+                    <div className="bot-avatar">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-1v2h1a4 4 0 0 1 4 4v5a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2v-5a4 4 0 0 1 4-4h1V8h-1a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h4z" />
+                      </svg>
                     </div>
-                  ) : (
-                    <p style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</p>
                   )}
+                  <div className="message-content">
+                    {msg.typing ? (
+                      <div className="typing-indicator"><span /><span /><span /></div>
+                    ) : (
+                      <p style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</p>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
           {chatError && (
             <div style={{ textAlign: 'center', color: '#f87171', fontSize: '0.85rem', padding: '0.5rem 1rem', background: 'rgba(239,68,68,0.08)', borderRadius: 8 }}>
               ⚠️ {chatError}

@@ -146,6 +146,9 @@
   text-overflow: ellipsis;
   border: 1px solid transparent;
   position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .history-item:hover {
@@ -172,6 +175,29 @@
   height: 40%;
   background-color: var(--primary-color);
   border-radius: 0 4px 4px 0;
+}
+
+/* Delete button on conversation items */
+.conv-delete-btn {
+  background: none;
+  border: none;
+  color: transparent;
+  font-size: 0.75rem;
+  padding: 2px 5px;
+  border-radius: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+  line-height: 1;
+}
+
+.history-item:hover .conv-delete-btn {
+  color: var(--text-muted);
+}
+
+.conv-delete-btn:hover {
+  background: rgba(239, 68, 68, 0.15) !important;
+  color: #f87171 !important;
 }
 
 .user-profile {
