@@ -19,6 +19,7 @@ function App() {
   const [user, setUser]             = useState(null);
   const [authView, setAuthView]     = useState('login');
   const [authLoading, setAuthLoading] = useState(true);
+  const [toast, setToast] = useState('');
 
   // Conversations
   const [conversations, setConversations]         = useState([]);
@@ -111,10 +112,14 @@ function App() {
 
   const handleLogout = () => {
     localStorage.removeItem('token');
-    setUser(null);
-    setConversations([]);
-    setActiveConvId(null);
-    setMessages([WELCOME_MSG]);
+    setToast('Logged out successfully');
+    setTimeout(() => {
+      setUser(null);
+      setConversations([]);
+      setActiveConvId(null);
+      setMessages([WELCOME_MSG]);
+      setToast('');
+    }, 1800);
   };
 
   // ── Send message ──
@@ -194,6 +199,7 @@ function App() {
   // ──────────────────────────────────────────
   return (
     <div className="chat-container">
+      {toast && <div className="toast-notification">{toast}</div>}
       {/* Sidebar */}
       <aside className="sidebar">
         <div className="sidebar-header">
