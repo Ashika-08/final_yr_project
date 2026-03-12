@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown'
 import { api } from './utils/api'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import Auditors from './pages/Auditors'
 import './App.css'
 
 function getInitials(username = '') {
@@ -21,6 +22,9 @@ function App() {
   const [authView, setAuthView]     = useState('login');
   const [authLoading, setAuthLoading] = useState(true);
   const [toast, setToast] = useState('');
+
+  // Page routing
+  const [currentPage, setCurrentPage] = useState('home');
 
   // Conversations
   const [conversations, setConversations]         = useState([]);
@@ -205,7 +209,11 @@ function App() {
       <aside className="sidebar">
         <div className="sidebar-header">
           <div className="logo-placeholder"></div>
-          <h2>Smart Campus</h2>
+          <h2
+            style={{ cursor: 'pointer' }}
+            onClick={() => setCurrentPage('home')}
+            title="Go to Home"
+          >RegBot</h2>
         </div>
 
         <button className="new-chat-btn" onClick={handleNewChat}>
@@ -270,9 +278,42 @@ function App() {
 
       {/* Main Chat */}
       <main className="chat-main">
+        {currentPage === 'auditors' ? (
+          <Auditors onBack={() => setCurrentPage('home')} />
+        ) : (
+          <>
         <header className="chat-header">
           <h2>Legal Assistant RAG</h2>
-          <span className="status-indicator"></span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <button
+              onClick={() => setCurrentPage('auditors')}
+              style={{
+                background: 'linear-gradient(135deg, #6366f1, #7c3aed)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '10px',
+                padding: '0.45rem 0.9rem',
+                fontSize: '0.82rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                transition: 'opacity 0.2s, transform 0.2s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.opacity = '0.85'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+              onMouseLeave={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'translateY(0)'; }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+              Find an Auditor
+            </button>
+            <span className="status-indicator"></span>
+          </div>
         </header>
 
         <div className="messages-area">
@@ -335,6 +376,8 @@ function App() {
           </form>
           <p className="disclaimer">AI can make mistakes. Verify important legal information.</p>
         </div>
+          </>
+        )}
       </main>
     </div>
   );

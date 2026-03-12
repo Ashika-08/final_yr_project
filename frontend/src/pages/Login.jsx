@@ -34,8 +34,8 @@ function Login({ onLogin, onGoRegister }) {
               <path d="M12 2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-1v2h1a4 4 0 0 1 4 4v5a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2v-5a4 4 0 0 1 4-4h1V8h-1a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h4z" />
             </svg>
           </div>
-          <h1>Smart Campus</h1>
-          <p>Sign in to access the Legal Assistant</p>
+          <h1>RegBot</h1>
+          <p>Sign in to access your Compliance Assistant</p>
         </div>
 
         {error && <div className="auth-error">{error}</div>}

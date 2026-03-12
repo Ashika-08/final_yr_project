@@ -46,7 +46,7 @@ function Register({ onGoLogin }) {
             </svg>
           </div>
           <h1>Create Account</h1>
-          <p>Join the Smart Campus Assistant</p>
+          <p>Join RegBot — Your Compliance Assistant</p>
         </div>
 
         {error   && <div className="auth-error">{error}</div>}
